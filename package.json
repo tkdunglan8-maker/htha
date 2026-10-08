@@ -1,0 +1,21 @@
+{
+  "name": "htah-adventure",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HTAH Adventure multiplayer game",
+  "scripts": {
+    "build:web": "node -e \"console.log('Static web app: www/index.html')\"",
+    "cap:sync": "npx cap sync",
+    "android:debug": "npx cap sync android && cd android && ./gradlew assembleDebug",
+    "android:release": "npx cap sync android && cd android && ./gradlew assembleRelease",
+    "ios:build": "npx cap sync ios && xcodebuild -workspace ios/App/App.xcworkspace -scheme App -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.4.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.4",
+    "@capacitor/android": "^7.4.4",
+    "@capacitor/ios": "^7.4.4"
+  }
+}
