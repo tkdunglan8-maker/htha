@@ -12,6 +12,11 @@
   var _set=SP.setItem,_rem=SP.removeItem,_clr=SP.clear;
   var want=function(k){ return PFX.test(k)&&k!==TSK; };
   var ready=false,db=null,pending={},sched=false,tsLocal=0;
+  /* giấu trang tới khi đọc xong bản sao lưu, tránh nháy màn hình đăng nhập cũ */
+  var hold=null;
+  try{ hold=document.createElement("style"); hold.textContent="html{visibility:hidden!important}"; document.documentElement.appendChild(hold); }catch(e){ hold=null; }
+  function release(){ try{ if(hold&&hold.parentNode)hold.parentNode.removeChild(hold); }catch(e){} hold=null; }
+  setTimeout(release,1500);
   function stamp(){ tsLocal=Date.now(); try{ _set.call(LS,TSK,String(tsLocal)); }catch(e){} }
   function note(k,v){ pending[k]=v; if(sched)return; sched=true; Promise.resolve().then(function(){ sched=false; flush(); }); }
   function flush(){
@@ -39,7 +44,7 @@
       for(var i=0;i<LS.length;i++){ var k=LS.key(i); if(want(k))st.put(LS.getItem(k),k); }
       var t=+(LS.getItem(TSK)||0); if(!t){ stamp(); t=tsLocal; } tsLocal=t; st.put(t,"__ts");
     }catch(e){}
-    ready=true;
+    ready=true; release();
   }
   function decide(all,idbTs){
     var lsTs=+(LS.getItem(TSK)||0);
@@ -60,15 +65,15 @@
   try{
     var rq=indexedDB.open("htah-mirror",1);
     rq.onupgradeneeded=function(){ rq.result.createObjectStore("kv"); };
-    rq.onerror=rq.onblocked=function(){ ready=false; };
+    rq.onerror=rq.onblocked=function(){ ready=false; release(); };
     rq.onsuccess=function(){
       db=rq.result;
       var tx=db.transaction("kv","readonly"),cur=tx.objectStore("kv").openCursor(),all={},ts=0;
       cur.onsuccess=function(){ var c=cur.result; if(!c)return; if(c.key==="__ts")ts=+c.value||0; else all[c.key]=c.value; c.continue(); };
       tx.oncomplete=function(){ decide(all,ts); };
-      tx.onerror=tx.onabort=function(){ db=null; };
+      tx.onerror=tx.onabort=function(){ db=null; release(); };
     };
-  }catch(e){}
+  }catch(e){ release(); }
 })();
 </script>
   <meta charset="utf-8">
@@ -1387,7 +1392,7 @@
       if(!keepBuff){player.invuln=0;player.buffTimer=0;player.buffDmgMult=1;player.buffRateMult=1;player.buffMoveExtra=0;player.buffInvuln=false;player.buffAuraRadius=0}return;
     }
     player.maxHp=Math.round((Math.round((c.hp+power*8+healthLevel*30+(stage-1)*100+(player.mods?.hpBonus||0))*(1+(player.mods?.hpP||0)))+eqHp)*(1+pbHpP));player.hp=player.maxHp;player.maxMana=Math.round(c.mana*(1+(player.mods?.manaP||0)));player.mana=player.maxMana;player.manaRegen=c.manaRegen+(player.mods?.mana||0);player.speed=(c.speed*1.18+speedLevel*8+(player.mods?.move||0))*(1+(player.mods?.moveP||0)+pbMoveP)+gemSpd;player.damage=(c.damage*(player.mods?.damage||1)+power*2+eqDmg)*(1+pbDmgP);player.range=c.range*(1+(player.mods?.rangeP||0));player.rate=c.rate*(player.mods?.rate||1);player.color=c.color;if(!keepBuff){player.invuln=0;player.buffTimer=0;player.buffDmgMult=1;player.buffRateMult=1;player.buffMoveExtra=0;player.buffInvuln=false;player.buffAuraRadius=0}}
-  function continueRun(){if(!save)return;if(save.classKey==="god"&&!isAdmin){showToast("Bạn cần quyền admin để truy cập");return}challengeMode=false;$("challenge-toggle").classList.remove("active");$("challenge-toggle").textContent="⏱️ Chế Độ Thử Thách: TẮT";adminOv=(isAdmin&&save.adminOv)?save.adminOv:{};summons=[];selectedClass=(classes[save.classKey]?save.classKey:"warrior");stage=save.stage||1;level=save.level||1;xp=save.xp||0;gems=save.gems||0;coins=save.coins||0;power=save.power||0;speedLevel=save.speedLevel||0;healthLevel=save.healthLevel||0;ownedSkills=save.ownedSkills||[];player.lifesteal=save.lifesteal||0;player.mods=Object.assign(freshMods(),save.mods||{});inventory=save.inventory||Array.from({length:10},()=>Array(20).fill(null));equipped=save.equipped||{weapon:null,armor:null};extraActiveSkills=save.extraActiveSkills||[];extraBossSkills=save.extraBossSkills||[];pet=save.pet||null;ensureActivePetInBag();activeSkills=classes[selectedClass].skills.map(s=>({icon:s[0],name:s[1],cost:s[2],cool:s[3]}));skillCD=activeSkills.map(()=>0);resetFX();loadMageCD();rebuildActiveSkillsWithExtras();applyClass();startStage();$("class-screen").classList.add("hidden");setGameUI(true);running=true}
+  function continueRun(){if(!save)return;if(save.classKey==="god"&&!isAdmin){showToast("Bạn cần quyền admin để truy cập");return}challengeMode=false;$("challenge-toggle").classList.remove("active");$("challenge-toggle").textContent="⏱️ Chế Độ Thử Thách: TẮT";adminOv=(isAdmin&&save.adminOv)?save.adminOv:{};summons=[];selectedClass=(classes[save.classKey]?save.classKey:"warrior");stage=save.stage||1;level=save.level||1;xpNeed=level<=1?80:Math.floor(80+level*24);xp=Math.min(save.xp||0,xpNeed-1);gems=save.gems||0;coins=save.coins||0;power=save.power||0;speedLevel=save.speedLevel||0;healthLevel=save.healthLevel||0;ownedSkills=save.ownedSkills||[];player.lifesteal=save.lifesteal||0;player.mods=Object.assign(freshMods(),save.mods||{});inventory=save.inventory||Array.from({length:10},()=>Array(20).fill(null));equipped=save.equipped||{weapon:null,armor:null};extraActiveSkills=save.extraActiveSkills||[];extraBossSkills=save.extraBossSkills||[];pet=save.pet||null;ensureActivePetInBag();activeSkills=classes[selectedClass].skills.map(s=>({icon:s[0],name:s[1],cost:s[2],cool:s[3]}));skillCD=activeSkills.map(()=>0);resetFX();loadMageCD();rebuildActiveSkillsWithExtras();applyClass();startStage();$("class-screen").classList.add("hidden");setGameUI(true);running=true}
   function exitToClass(){
     if(!selectedClass)return;
     if(challengeMode&&running)submitScore();
@@ -1661,7 +1666,7 @@
   let choosing=false;
   function previewDiff(s){const k={hp:player.hp,mana:player.mana,mods:JSON.stringify(player.mods||freshMods()),ls:player.lifesteal,c:coins};let out=[];const before=statSnap();try{applyCatalogSkill(s);applyClass(true);out=statDiff(before,statSnap())}catch(e){}player.mods=JSON.parse(k.mods);player.lifesteal=k.ls;coins=k.c;applyClass(true);player.hp=k.hp;player.mana=k.mana;return out}
   let levelRefreshLeft=3;
-  function renderLevelChoices(){const _m=player.mods||freshMods(),avail=skillCatalog.filter(s=>!ownedSkills.includes(s.id)&&(!s.minLv||level>=s.minLv)&&!(s.full&&s.full(_m)));const ex=avail.filter(s=>s.id>=400),base=avail.filter(s=>s.id<400),used={},picks=[];while(picks.length<3&&(ex.length||base.length)){const useEx=ex.length&&(Math.random()<.6||!base.length);const src=useEx?ex:base;const s=src.splice(Math.floor(Math.random()*src.length),1)[0];if(s.key){if(used[s.key])continue;used[s.key]=1}picks.push(s)}$("choices").innerHTML=picks.map(s=>`<button class="choice" data-choice="${s.id}"><div class="icon">${s.icon}</div><b>${s.name}</b><span>${s.desc}</span><div class="pv">${(previewDiff(s).slice(0,2).map(d=>'▲ '+d).join('<br>'))||'▲ hiệu ứng nhỏ'}</div></button>`).join("");const rb=$("refresh-skills-btn");if(rb){rb.disabled=levelRefreshLeft<=0;rb.textContent=levelRefreshLeft>0?`🔄 Làm mới kỹ năng (${levelRefreshLeft} lần)`:"🔄 Đã hết lượt làm mới"}}
+  function renderLevelChoices(){const _m=player.mods||freshMods(),avail=skillCatalog.filter(s=>!ownedSkills.includes(s.id)&&(!s.minLv||level>=s.minLv)&&!(s.full&&s.full(_m)));const pool=avail.slice(),used={},picks=[],R01=()=>{try{return crypto.getRandomValues(new Uint32Array(1))[0]/4294967296}catch(e){return Math.random()}};while(picks.length<3&&pool.length){const s=pool.splice(Math.floor(R01()*pool.length),1)[0];if(s.key){if(used[s.key])continue;used[s.key]=1}picks.push(s)}$("choices").innerHTML=picks.map(s=>`<button class="choice" data-choice="${s.id}"><div class="icon">${s.icon}</div><b>${s.name}</b><span>${s.desc}</span><div class="pv">${(previewDiff(s).slice(0,2).map(d=>'▲ '+d).join('<br>'))||'▲ hiệu ứng nhỏ'}</div></button>`).join("");const rb=$("refresh-skills-btn");if(rb){rb.disabled=levelRefreshLeft<=0;rb.textContent=levelRefreshLeft>0?`🔄 Làm mới kỹ năng (${levelRefreshLeft} lần)`:"🔄 Đã hết lượt làm mới"}}
   function openLevelUp(){paused=true;levelRefreshLeft=3;renderLevelChoices();$("level-modal").classList.remove("hidden");choosing=false;for(const el of document.querySelectorAll("#level-modal .modal-title,#level-modal .modal-sub,#choices .choice")){el.style.animation="none";void el.offsetWidth;el.style.animation=""}}
   $("refresh-skills-btn")?.addEventListener("click",()=>{if(choosing||levelRefreshLeft<=0)return;levelRefreshLeft--;renderLevelChoices()});
   function skillEffect(i,j){
